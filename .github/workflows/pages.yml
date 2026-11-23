@@ -33,7 +33,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data.json data.js
           git diff --cached --quiet || git commit -m "data: refresh $(date -u +%F)"
-          git pull --rebase -q origin main
+          # another run may have pushed fresh data meanwhile; on conflict keep THIS run's (newer) pull
+          git pull --rebase -X theirs -q origin main
           git push
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
