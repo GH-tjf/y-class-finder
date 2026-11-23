@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Y Class Finder</title>
+<meta name="theme-color" content="#0060af">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --bg:#f5f6f8;--card:#fff;--ink:#14171c;--muted:#5d6570;--line:#e2e5ea;
+  --brand:#0060af;--brand-ink:#fff;--chip:#eef1f5;--chip-on:#0060af;--star:#e0a100;
+  --ok:#137a3a;--warn:#b25b00;--bad:#b3261e;--shadow:0 1px 2px rgba(0,0,0,.06),0 2px 8px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1115;--card:#181b21;--ink:#e9ecf1;--muted:#9aa3ae;--line:#2a2f37;
+  --brand:#4ea3ff;--brand-ink:#06101c;--chip:#232830;--chip-on:#4ea3ff;--star:#f3c13a;
+  --ok:#5fd08a;--warn:#f0a24a;--bad:#ff8a80;--shadow:none;}}
+:root[data-theme="dark"]{
+  --bg:#0f1115;--card:#181b21;--ink:#e9ecf1;--muted:#9aa3ae;--line:#2a2f37;
+  --brand:#4ea3ff;--brand-ink:#06101c;--chip:#232830;--chip-on:#4ea3ff;--star:#f3c13a;
+  --ok:#5fd08a;--warn:#f0a24a;--bad:#ff8a80;--shadow:none;}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+body{min-height:100dvh;padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+a{color:var(--brand)}
+header{position:sticky;top:0;z-index:20;background:var(--bg);padding:calc(8px + env(safe-area-inset-top)) 16px 6px;border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+h1{font-size:20px;margin:0}
+.fresh{font-size:12px;color:var(--muted)}
+.fresh.stale{color:var(--warn);font-weight:600}
+.search{display:flex;gap:8px;margin:8px 0 6px}
+.search input{flex:1;min-width:0;font-size:16px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card)}
+.iconbtn{min-width:44px;min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--card);display:inline-flex;align-items:center;justify-content:center;padding:0 10px;gap:4px;font-size:14px}
+.row-scroll{display:flex;gap:6px;overflow-x:auto;padding:4px 0;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.row-scroll::-webkit-scrollbar{display:none}
+.chip{flex:none;min-height:36px;padding:6px 12px;border-radius:18px;border:1px solid transparent;background:var(--chip);font-size:14px;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--chip-on);color:var(--brand-ink);font-weight:600}
+.chip.day{display:flex;flex-direction:column;align-items:center;line-height:1.1;padding:6px 10px;min-width:52px}
+.chip.day small{font-size:11px;opacity:.85}
+.chip.filter{border-color:var(--line);background:var(--card)}
+.chip.filter.active{border-color:var(--brand);color:var(--brand);font-weight:600}
+main{padding:8px 16px 16px;max-width:760px;margin:0 auto}
+.summary{font-size:13px;color:var(--muted);margin:4px 0 8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.summary select{font-size:14px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card)}
+.group{font-size:13px;font-weight:700;color:var(--muted);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.04em}
+.card{background:var(--card);border-radius:12px;box-shadow:var(--shadow);border:1px solid var(--line);margin-bottom:8px}
+.cls{display:flex;gap:10px;padding:10px 12px;align-items:flex-start;width:100%;text-align:left;border:0;background:none}
+.cls .time{flex:none;width:68px;font-variant-numeric:tabular-nums;font-weight:700;font-size:15px}
+.cls .time small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.cls .body{flex:1;min-width:0}
+.cls .name{font-weight:600}
+.cls .meta{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:9px;background:var(--chip);color:var(--muted);margin-top:3px}
+.past{opacity:.5}
+.now-badge{font-size:11px;font-weight:700;color:var(--ok)}
+.star{flex:none;width:44px;height:44px;margin:-8px -8px -8px 0;border:0;background:none;font-size:22px;color:var(--muted)}
+.star[aria-pressed="true"]{color:var(--star)}
+.empty{text-align:center;color:var(--muted);padding:32px 8px}
+.empty button{margin-top:10px}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav.tabs button{flex:1;min-height:60px;border:0;background:none;font-size:12px;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+nav.tabs button span{font-size:20px;line-height:1}
+nav.tabs button[aria-current="page"]{color:var(--brand);font-weight:700}
+#map{height:calc(100dvh - 64px - env(safe-area-inset-bottom) - var(--hdr,120px));min-height:300px;border-radius:12px;border:1px solid var(--line)}
+.branch{padding:12px}
+.branch h3{margin:0 0 2px;font-size:17px}
+.status{font-size:14px;font-weight:600}
+.status.open{color:var(--ok)}.status.closing{color:var(--warn)}.status.closed{color:var(--bad)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.btn{min-height:44px;padding:8px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card);text-decoration:none;color:var(--ink);display:inline-flex;align-items:center;gap:6px;font-size:15px}
+.btn.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:600}
+table.hours{border-collapse:collapse;font-size:14px;margin-top:8px}
+table.hours td{padding:2px 12px 2px 0}
+table.hours tr.today td{font-weight:700}
+.muted{color:var(--muted)}
+/* bottom sheet */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:40;display:none}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;background:var(--card);border-radius:16px 16px 0 0;max-height:85dvh;overflow:auto;padding:8px 16px calc(16px + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .22s ease;max-width:760px;margin:0 auto;overscroll-behavior:contain}
+.sheet.open{transform:none}.scrim.open{display:block}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 8px}
+.sheet h2{margin:4px 0;font-size:20px}
+.sheet .close{position:absolute;right:8px;top:6px}
+.opt{display:flex;align-items:center;gap:10px;min-height:48px;border-bottom:1px solid var(--line);font-size:16px}
+.opt input{width:22px;height:22px}
+.sheet-foot{position:sticky;bottom:calc(-16px - env(safe-area-inset-bottom));background:var(--card);padding:10px 0;display:flex;gap:8px}
+.sheet-foot .btn{flex:1;justify-content:center}
+.hidden{display:none!important}
+@media (hover:hover){.cls:hover{background:var(--chip)}.chip:hover{filter:brightness(.97)}}
+@media (prefers-reduced-motion:reduce){.sheet{transition:none}}
+</style>
+</head>
+<body>
+<header id="hdr">
+  <div class="top"><h1 id="title">Y Class Finder</h1><span class="fresh" id="fresh"></span></div>
+  <div id="classControls">
+    <div class="search">
+      <input id="q" type="search" placeholder="Search class, instructor, room…" autocomplete="off" enterkeyhint="search" aria-label="Search classes">
+      <button class="iconbtn" id="nearBtn" aria-label="Sort by distance from me">📍<span id="nearLbl">Near me</span></button>
+    </div>
+    <div class="row-scroll" id="days" role="toolbar" aria-label="Day"></div>
+    <div class="row-scroll" id="filters" aria-label="Filters"></div>
+  </div>
+</header>
+
+<main>
+  <section id="view-classes">
+    <div class="summary"><span id="count" aria-live="polite"></span>
+      <label>Sort <select id="sort">
+        <option value="time">Start time</option><option value="name">Class name</option>
+        <option value="branch">Branch</option><option value="dist">Distance</option>
+      </select></label></div>
+    <div id="list"></div>
+  </section>
+  <section id="view-map" class="hidden"><div id="map" role="application" aria-label="Map of YMCA locations"></div></section>
+  <section id="view-branches" class="hidden"><div class="summary"><span>Hours shown are this week's, holiday changes included.</span></div><div id="branchList"></div></section>
+  <section id="view-starred" class="hidden"><div id="starList"></div></section>
+</main>
+
+<nav class="tabs" aria-label="Sections">
+  <button data-tab="classes" aria-current="page"><span>🗓️</span>Classes</button>
+  <button data-tab="map"><span>🗺️</span>Map</button>
+  <button data-tab="branches"><span>🏢</span>Branches</button>
+  <button data-tab="starred"><span>★</span>Starred</button>
+</nav>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"><div class="grab"></div><button class="iconbtn close" id="sheetClose" aria-label="Close">✕</button><div id="sheetBody"></div></div>
+
+<script src="data.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+"use strict";
+const D = window.YDATA;
+const TZ = "America/Chicago";
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem("yc:"+k); return v == null ? d : JSON.parse(v); }catch{ return d; } },
+  set(k, v){ try{ localStorage.setItem("yc:"+k, JSON.stringify(v)); }catch{} }
+};
+
+// ---------- time helpers (always Central, whatever the phone's zone) ----------
+const fmtParts = new Intl.DateTimeFormat("en-US",{timeZone:TZ,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23",weekday:"short"});
+function parts(sec){ const o={}; for(const p of fmtParts.formatToParts(new Date(sec*1000))) o[p.type]=p.value; return o; }
+const dayKey = sec => { const p=parts(sec); return `${p.year}-${p.month}-${p.day}`; };
+const nowSec = () => Math.floor(Date.now()/1000);
+function hm(sec){ const p=parts(sec); let h=+p.hour, m=p.minute; const ap=h<12?"a":"p"; h=h%12||12; return m==="00"?`${h}${ap}`:`${h}:${m}${ap}`; }
+const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+// ---------- data prep ----------
+if(!D){ document.body.innerHTML = '<p style="padding:24px">Schedule data did not load. Check your connection and reload.</p>'; throw new Error("no data"); }
+const LOCS = D.locations;
+const LOCBY = Object.fromEntries(LOCS.map(l=>[l.name,l]));
+const EV = D.events.map((e,idx)=>{ const c=D.classes[e.c]||{name:"Class"}; return {...e, idx, name:c.name, day:dayKey(e.s), hay:(c.name+" "+e.i+" "+e.r+" "+e.k+" "+e.l).toLowerCase()}; });
+const DAYS = [...new Set(EV.map(e=>e.day))].sort();
+const CATS = [...new Set(EV.map(e=>e.k).filter(Boolean))].sort();
+const BRANCHES = LOCS.filter(l=>EV.some(e=>e.l===l.name)).map(l=>l.name);
+
+// ---------- state ----------
+const S = {
+  tab:"classes", q:"", day: DAYS.includes(dayKey(nowSec())) ? dayKey(nowSec()) : DAYS[0],
+  branches: new Set(store.get("branches",[])), cats:new Set(store.get("cats",[])), tod:new Set(),
+  sort: store.get("sort","time"), here:null,
+  stars: new Set(store.get("stars",[])),   // key = classId|location
+};
+const starKey = e => e.c+"|"+e.l;
+
+// ---------- freshness (heuristic 1: visibility of system status) ----------
+(function(){
+  const t = new Date(D.updated), ageH = (Date.now()-t)/36e5;
+  const when = t.toLocaleString("en-US",{timeZone:TZ,weekday:"short",hour:"numeric",minute:"2-digit"});
+  const el=$("#fresh"); el.textContent = "Updated "+when; if(ageH>36){ el.classList.add("stale"); el.textContent += " · may be out of date"; }
+})();
+
+// ---------- hours parsing ----------
+function dayRange(label){ // "Mon - Tue" | "Sat" | "Mon-Fri" -> [dow...]
+  const m = label.match(/(Sun|Mon|Tue|Wed|Thu|Fri|Sat)\w*\s*(?:-|–|to)?\s*(Sun|Mon|Tue|Wed|Thu|Fri|Sat)?/i); if(!m) return [];
+  const a=WD.findIndex(d=>d.toLowerCase()===m[1].slice(0,3).toLowerCase()), b=m[2]?WD.findIndex(d=>d.toLowerCase()===m[2].slice(0,3).toLowerCase()):a;
+  const out=[]; for(let i=a;;i=(i+1)%7){ out.push(i); if(i===b) break; } return out;
+}
+function toMin(s){ const m=s.trim().match(/^(\d{1,2})(?::(\d\d))?\s*(a|p)/i); if(!m) return null; let h=+m[1]%12; if(m[3].toLowerCase()==="p") h+=12; return h*60+(+m[2]||0); }
+function weekHours(l){ return l.week_hours || (l.hours[0]?.days) || []; }
+function hoursFor(l, dow){ for(const [lab,val] of weekHours(l)){ if(dayRange(lab).includes(dow)) return val; } return null; }
+function openStatus(l){
+  const p=parts(nowSec()), dow=WD.indexOf(p.weekday), cur=+p.hour*60+ +p.minute, h=hoursFor(l,dow);
+  if(!h) return null;
+  if(/closed/i.test(h)) return {cls:"closed",txt:"Closed today"};
+  const [a,b]=h.split(/-|–/).map(toMin); if(a==null||b==null) return {cls:"",txt:h};
+  const fmt=m=>{let hh=Math.floor(m/60),mm=m%60;const ap=hh<12||hh===24?"a":"p";hh=hh%12||12;return mm?`${hh}:${String(mm).padStart(2,"0")}${ap}`:`${hh}${ap}`;};
+  if(cur<a) return {cls:"closed",txt:`Opens ${fmt(a)}`};
+  if(cur>=b) return {cls:"closed",txt:"Closed now"};
+  if(b-cur<=60) return {cls:"closing",txt:`Open · closes ${fmt(b)}`};
+  return {cls:"open",txt:`Open · closes ${fmt(b)}`};
+}
+
+// ---------- distance ----------
+function km(a,b){ const R=6371,t=Math.PI/180,dl=(b.lat-a.lat)*t,dn=(b.lng-a.lng)*t; const x=Math.sin(dl/2)**2+Math.cos(a.lat*t)*Math.cos(b.lat*t)*Math.sin(dn/2)**2; return 2*R*Math.asin(Math.sqrt(x)); }
+const miles = l => S.here && l ? km(S.here,l)*0.621371 : null;
+function locate(then){
+  if(!navigator.geolocation){ alert("Location isn't available on this device."); return; }
+  $("#nearLbl").textContent="Locating…";
+  navigator.geolocation.getCurrentPosition(p=>{ S.here={lat:p.coords.latitude,lng:p.coords.longitude}; $("#nearLbl").textContent="Near me ✓"; then&&then(); },
+    ()=>{ $("#nearLbl").textContent="Near me"; alert("Couldn't get your location. You can still pick branches with the Branch filter."); },{timeout:10000,maximumAge:300000});
+}
+
+// ---------- header controls ----------
+function renderDays(){
+  const today=dayKey(nowSec());
+  $("#days").innerHTML = DAYS.map(d=>{ const dt=new Date(d+"T12:00:00"); const lab=d===today?"Today":WD[dt.getDay()];
+    return `<button class="chip day" data-day="${d}" aria-pressed="${d===S.day}">${lab}<small>${dt.getMonth()+1}/${dt.getDate()}</small></button>`; }).join("");
+}
+function renderFilters(){
+  const n=s=>s.size?` (${s.size})`:"";
+  const tod=[["am","Morning"],["mid","Midday"],["pm","Evening"]];
+  $("#filters").innerHTML =
+    `<button class="chip filter ${S.branches.size?"active":""}" data-open="branches">Branch${n(S.branches)} ▾</button>`+
+    `<button class="chip filter ${S.cats.size?"active":""}" data-open="cats">Type${n(S.cats)} ▾</button>`+
+    tod.map(([k,l])=>`<button class="chip" data-tod="${k}" aria-pressed="${S.tod.has(k)}">${l}</button>`).join("")+
+    ((S.branches.size||S.cats.size||S.tod.size||S.q)?`<button class="chip filter" data-clear>Clear all</button>`:"");
+}
+$("#days").addEventListener("click",e=>{ const b=e.target.closest("[data-day]"); if(!b) return; S.day=b.dataset.day; renderDays(); renderList(); });
+$("#filters").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  if(b.dataset.tod){ const k=b.dataset.tod; S.tod.has(k)?S.tod.delete(k):S.tod.add(k); }
+  else if(b.dataset.open) return pickSheet(b.dataset.open);
+  else if("clear" in b.dataset){ S.branches.clear(); S.cats.clear(); S.tod.clear(); S.q=""; $("#q").value=""; saveFilters(); }
+  renderFilters(); renderList();
+});
+let qT; $("#q").addEventListener("input",e=>{ clearTimeout(qT); qT=setTimeout(()=>{ S.q=e.target.value.trim().toLowerCase(); renderFilters(); renderList(); },120); });
+$("#sort").value=S.sort;
+$("#sort").addEventListener("change",e=>{ S.sort=e.target.value; store.set("sort",S.sort); if(S.sort==="dist"&&!S.here) locate(renderAll); else renderAll(); });
+$("#nearBtn").addEventListener("click",()=>locate(()=>{ S.sort="dist"; $("#sort").value="dist"; store.set("sort","dist"); renderAll(); }));
+function saveFilters(){ store.set("branches",[...S.branches]); store.set("cats",[...S.cats]); }
+
+// ---------- class list ----------
+function todBucket(sec){ const h=+parts(sec).hour; return h<11?"am":h<16?"mid":"pm"; }
+function filtered(day){
+  const words=S.q.split(/\s+/).filter(Boolean);
+  return EV.filter(e=>(!day||e.day===day)
+    && (!S.branches.size||S.branches.has(e.l)) && (!S.cats.size||S.cats.has(e.k))
+    && (!S.tod.size||S.tod.has(todBucket(e.s))) && words.every(w=>e.hay.includes(w)));
+}
+function sortEv(arr){
+  const by={ time:(a,b)=>a.s-b.s||a.name.localeCompare(b.name),
+    name:(a,b)=>a.name.localeCompare(b.name)||a.s-b.s,
+    branch:(a,b)=>a.l.localeCompare(b.l)||a.s-b.s,
+    dist:(a,b)=>((miles(LOCBY[a.l])??1e9)-(miles(LOCBY[b.l])??1e9))||a.s-b.s };
+  return arr.sort(by[S.sort]||by.time);
+}
+function rowHTML(e,{showDay=false}={}){
+  const now=nowSec(), past=e.e<now, live=e.s<=now&&now<e.e, mi=miles(LOCBY[e.l]);
+  const dayLab = showDay ? (()=>{const dt=new Date(e.day+"T12:00:00");return WD[dt.getDay()]+" "+(dt.getMonth()+1)+"/"+dt.getDate()+" · ";})() : "";
+  return `<div class="card ${past?"past":""}"><div class="cls">
+    <button class="cls" style="padding:0;flex:1" data-ev="${e.idx}" aria-label="${esc(e.name)} at ${hm(e.s)}, ${esc(e.l)}">
+      <div class="time">${hm(e.s)}<small>${(e.e-e.s)>=5400?"to "+hm(e.e):Math.round((e.e-e.s)/60)+" min"}</small></div>
+      <div class="body"><div class="name">${esc(e.name)} ${live?'<span class="now-badge">● NOW</span>':""}</div>
+        <div class="meta">${dayLab}${esc(e.l)}${e.r?" · "+esc(e.r):""}${mi!=null?` · ${mi.toFixed(1)} mi`:""}</div>
+        <div class="meta">${e.i?esc(e.i):""}${e.k?` <span class="tag">${esc(e.k)}</span>`:""}</div></div>
+    </button>
+    <button class="star" data-star="${e.idx}" aria-pressed="${S.stars.has(starKey(e))}" aria-label="Star this class">${S.stars.has(starKey(e))?"★":"☆"}</button>
+  </div></div>`;
+}
+function renderList(){
+  const arr=sortEv(filtered(S.day));
+  const today=S.day===dayKey(nowSec()), now=nowSec();
+  // today: upcoming first, already-finished collapsed at the end
+  // long open blocks (open gym, lap lanes, courts: 3h+) are availability, not classes: fold them away
+  const LONG=3*3600, blocks=arr.filter(e=>e.e-e.s>=LONG&&!(today&&e.e<now)), cls=arr.filter(e=>e.e-e.s<LONG);
+  let up=cls, done=[];
+  if(today){ up=cls.filter(e=>e.e>=now); done=arr.filter(e=>e.e<now); }
+  $("#count").textContent = `${cls.length} class${cls.length===1?"":"es"}`+(today&&done.length?` · ${done.length} already over`:"");
+  if(!arr.length){
+    $("#list").innerHTML=`<div class="empty">No classes match.<br><span class="muted">Try another day, or loosen the filters.</span><br><button class="btn" data-clearall>Clear filters</button></div>`;
+    return;
+  }
+  let html="", lastG=null;
+  const gname=e=> S.sort==="time"? ({am:"Morning",mid:"Midday",pm:"Evening"})[todBucket(e.s)]
+                 : S.sort==="branch"? e.l : S.sort==="dist"? e.l+(miles(LOCBY[e.l])!=null?` · ${miles(LOCBY[e.l]).toFixed(1)} mi`:"") : null;
+  if(blocks.length) html+=`<details class="card" style="padding:4px 12px"><summary class="group" style="cursor:pointer;margin:8px 0">Open gym, pools &amp; courts (${blocks.length})</summary>${blocks.map(e=>rowHTML(e)).join("")}</details>`;
+  for(const e of up){ const g=gname(e); if(g&&g!==lastG){ html+=`<div class="group">${esc(g)}</div>`; lastG=g; } html+=rowHTML(e); }
+  if(done.length) html+=`<details><summary class="group" style="cursor:pointer">Already over (${done.length})</summary>${done.map(e=>rowHTML(e)).join("")}</details>`;
+  $("#list").innerHTML=html;
+}
+document.addEventListener("click",e=>{
+  const st=e.target.closest("[data-star]"); if(st){ toggleStar(EV[+st.dataset.star]); return; }
+  const ev=e.target.closest("[data-ev]"); if(ev){ classSheet(EV[+ev.dataset.ev]); return; }
+  const br=e.target.closest("[data-branch]"); if(br){ branchSheet(LOCBY[br.dataset.branch]); return; }
+  if(e.target.closest("[data-clearall]")){ S.branches.clear(); S.cats.clear(); S.tod.clear(); S.q=""; $("#q").value=""; saveFilters(); renderAll(); }
+});
+function toggleStar(e){ const k=starKey(e); S.stars.has(k)?S.stars.delete(k):S.stars.add(k); store.set("stars",[...S.stars]); renderAll(); }
+
+// ---------- sheets ----------
+let lastFocus=null;
+function openSheet(html){ lastFocus=document.activeElement; $("#sheetBody").innerHTML=html; $("#sheet").classList.add("open"); $("#scrim").classList.add("open"); $("#sheetClose").focus(); }
+function closeSheet(){ $("#sheet").classList.remove("open"); $("#scrim").classList.remove("open"); lastFocus&&lastFocus.focus&&lastFocus.focus(); }
+$("#scrim").onclick=closeSheet; $("#sheetClose").onclick=closeSheet;
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeSheet(); });
+
+function pickSheet(kind){
+  const list = kind==="branches"? BRANCHES : CATS, set = kind==="branches"? S.branches : S.cats;
+  const label = kind==="branches"? "Branches" : "Class type";
+  const counts={}; for(const e of EV) if(e.day===S.day){ const k=kind==="branches"?e.l:e.k; counts[k]=(counts[k]||0)+1; }
+  openSheet(`<h2 id="sheetTitle">${label}</h2><p class="muted" style="margin:0 0 6px">${kind==="branches"?"Your picks are remembered next time.":"Pick one or more."}</p>
+    ${list.map(v=>`<label class="opt"><input type="checkbox" value="${esc(v)}" ${set.has(v)?"checked":""}> <span style="flex:1">${esc(v)}</span><span class="muted">${counts[v]||0}</span></label>`).join("")}
+    <div class="sheet-foot"><button class="btn" id="pkNone">Any</button><button class="btn primary" id="pkDone">Show classes</button></div>`);
+  $("#pkNone").onclick=()=>{ set.clear(); saveFilters(); closeSheet(); renderFilters(); renderList(); };
+  $("#pkDone").onclick=()=>{ set.clear(); document.querySelectorAll("#sheetBody input:checked").forEach(i=>set.add(i.value)); saveFilters(); closeSheet(); renderFilters(); renderList(); };
+}
+const mapsUrl = l => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(l.address||(l.lat+","+l.lng))}`;
+function classSheet(e){
+  const c=D.classes[e.c]||{}, l=LOCBY[e.l]||{}, dt=new Date(e.day+"T12:00:00");
+  const others=EV.filter(x=>x.c===e.c&&x.l===e.l&&x.s>nowSec()&&x.idx!==e.idx).slice(0,6);
+  openSheet(`<h2 id="sheetTitle">${esc(e.name)}</h2>
+    <div><b>${WD[dt.getDay()]} ${dt.getMonth()+1}/${dt.getDate()}, ${hm(e.s)}–${hm(e.e)}</b> ${(e.e-e.s)<5400?`<span class="muted">(${Math.round((e.e-e.s)/60)} min)</span>`:""}</div>
+    <div>${esc(e.l)}${e.r?" · "+esc(e.r):""}</div>
+    ${e.i?`<div>with ${esc(e.i)}</div>`:""}${e.k?`<span class="tag">${esc(e.k)}</span>`:""}
+    ${c.desc?`<p>${esc(c.desc)}</p>`:""}
+    <div class="actions">
+      <button class="btn primary" id="icsBtn">📅 Add to calendar</button>
+      <button class="btn" id="starBtn">${S.stars.has(starKey(e))?"★ Starred":"☆ Star"}</button>
+      ${e.u?`<a class="btn" href="${esc(e.u)}" target="_blank" rel="noopener">Register ↗</a>`:""}
+      ${c.url?`<a class="btn" href="${esc(c.url)}" target="_blank" rel="noopener">Class page ↗</a>`:""}
+    </div>
+    <div class="actions">${l.phone?`<a class="btn" href="tel:${esc(l.phone)}">📞 Call ${esc(e.l)}</a>`:""}<a class="btn" href="${mapsUrl(l)}" target="_blank" rel="noopener">🧭 Directions</a></div>
+    ${others.length?`<div class="group">Next times at ${esc(e.l)}</div>${others.map(x=>{const d=new Date(x.day+"T12:00:00");return `<div>${WD[d.getDay()]} ${d.getMonth()+1}/${d.getDate()} · ${hm(x.s)}${x.i?" · "+esc(x.i):""}</div>`;}).join("")}`:""}`);
+  $("#icsBtn").onclick=()=>downloadICS(e); $("#starBtn").onclick=()=>{ toggleStar(e); classSheet(e); };
+}
+function downloadICS(e){
+  const z=s=>new Date(s*1000).toISOString().replace(/[-:]/g,"").replace(/\.\d+/,"");
+  const l=LOCBY[e.l]||{}, t=s=>String(s||"").replace(/[\\,;]/g,m=>"\\"+m).replace(/\n/g,"\\n");
+  const ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Y Class Finder//EN","BEGIN:VEVENT",`UID:ymca-${e.c}-${e.s}@yclassfinder`,`DTSTAMP:${z(nowSec())}`,`DTSTART:${z(e.s)}`,`DTEND:${z(e.e)}`,
+    `SUMMARY:${t(e.name+" (Y "+e.l+")")}`,`LOCATION:${t((e.r?e.r+", ":"")+"YMCA "+e.l+", "+(l.address||""))}`,`DESCRIPTION:${t((e.i?"Instructor: "+e.i+"\n":"")+(D.classes[e.c]?.desc||""))}`,"END:VEVENT","END:VCALENDAR"].join("\r\n");
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([ics],{type:"text/calendar"})); a.download=e.name.replace(/[^\w]+/g,"-")+".ics"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+}
+function hoursTable(l){
+  const dow=WD.indexOf(parts(nowSec()).weekday), rows=weekHours(l);
+  if(!rows.length) return `<p class="muted">Hours not listed. Call to check.</p>`;
+  return `<table class="hours">${rows.map(([lab,v])=>`<tr class="${dayRange(lab).includes(dow)?"today":""}"><td>${esc(lab.replace(/:$/,""))}</td><td>${esc(v)}</td></tr>`).join("")}</table>`;
+}
+function branchCard(l, inSheet){
+  const st=openStatus(l), mi=miles(l);
+  const next=EV.filter(e=>e.l===l.name&&e.s>=nowSec()).sort((a,b)=>a.s-b.s).slice(0,inSheet?5:0);
+  return `<div class="branch">
+    ${inSheet?`<h2 id="sheetTitle">${esc(l.name)}</h2>`:`<h3>${esc(l.name)}</h3>`}
+    ${l.type!=="YMCA"?`<span class="tag">${esc(l.type)}</span> `:""}${st?`<span class="status ${st.cls}">${esc(st.txt)}</span>`:""}${mi!=null?` <span class="muted">· ${mi.toFixed(1)} mi</span>`:""}
+    <div class="muted">${esc(l.address)}</div>
+    <div class="actions">${l.phone?`<a class="btn" href="tel:${esc(l.phone)}">📞 ${esc(l.phone)}</a>`:""}<a class="btn" href="${mapsUrl(l)}" target="_blank" rel="noopener">🧭 Directions</a>
+      ${inSheet?"":`<button class="btn" data-branch="${esc(l.name)}">More</button>`}</div>
+    ${inSheet?hoursTable(l):`<details><summary class="muted" style="margin-top:8px;cursor:pointer">This week's hours</summary>${hoursTable(l)}</details>`}
+    ${inSheet&&next.length?`<div class="group">Next up here</div>${next.map(e=>`<div>${hm(e.s)} · ${esc(e.name)}${e.r?` <span class="muted">· ${esc(e.r)}</span>`:""}</div>`).join("")}`:""}
+    ${inSheet&&BRANCHES.includes(l.name)?`<div class="actions"><button class="btn primary" id="showHere">See all classes here</button>${l.url?`<a class="btn" href="${esc(l.url)}" target="_blank" rel="noopener">Y website ↗</a>`:""}</div>`:""}
+  </div>`;
+}
+function branchSheet(l){
+  openSheet(branchCard(l,true));
+  const b=$("#showHere"); if(b) b.onclick=()=>{ S.branches=new Set([l.name]); saveFilters(); closeSheet(); setTab("classes"); renderFilters(); renderList(); };
+}
+
+// ---------- branches / starred / map ----------
+function sortedLocs(){ return [...LOCS].sort((a,b)=> S.here ? miles(a)-miles(b) : (a.type!==b.type ? (a.type==="YMCA"?-1:1) : a.name.localeCompare(b.name))); }
+function renderBranches(){ $("#branchList").innerHTML = sortedLocs().map(l=>`<div class="card">${branchCard(l,false)}</div>`).join(""); }
+function renderStarred(){
+  const up=EV.filter(e=>S.stars.has(starKey(e))&&e.e>=nowSec()).sort((a,b)=>a.s-b.s);
+  if(!S.stars.size){ $("#starList").innerHTML=`<div class="empty">No starred classes yet.<br><span class="muted">Tap ☆ on any class and every upcoming time for it shows up here.</span></div>`; return; }
+  $("#starList").innerHTML = `<div class="summary"><span>${up.length} upcoming times for ${S.stars.size} starred class${S.stars.size===1?"":"es"}</span></div>`+
+    (up.length? up.map(e=>rowHTML(e,{showDay:true})).join("") : `<div class="empty">None of your starred classes are on the schedule in the next two weeks.</div>`);
+}
+let map=null;
+function renderMap(){
+  if(typeof L==="undefined"){ $("#map").innerHTML='<div class="empty">The map needs an internet connection. The Branches tab works offline.</div>'; return; }
+  document.documentElement.style.setProperty("--hdr", $("#hdr").offsetHeight+16+"px");
+  if(!map){
+    map=L.map("map",{zoomControl:true}).setView([36.1,-86.75],9);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"© OpenStreetMap"}).addTo(map);
+    const pts=[];
+    for(const l of LOCS){ const m=L.marker([l.lat,l.lng],{title:l.name,alt:l.name}).addTo(map); m.on("click",()=>branchSheet(l)); m.bindTooltip(l.name); pts.push([l.lat,l.lng]); }
+    map.fitBounds(pts,{padding:[30,30]});
+  }
+  setTimeout(()=>map.invalidateSize(),50);
+}
+
+// ---------- tabs ----------
+function setTab(t){
+  S.tab=t;
+  document.querySelectorAll("nav.tabs button").forEach(b=>b.setAttribute("aria-current", b.dataset.tab===t?"page":"false"));
+  for(const v of ["classes","map","branches","starred"]) $("#view-"+v).classList.toggle("hidden", v!==t);
+  $("#classControls").classList.toggle("hidden", t!=="classes");
+  renderAll(); window.scrollTo(0,0);
+}
+document.querySelector("nav.tabs").addEventListener("click",e=>{ const b=e.target.closest("[data-tab]"); if(b) setTab(b.dataset.tab); });
+function renderAll(){
+  if(S.tab==="classes"){ renderFilters(); renderList(); }
+  else if(S.tab==="map") renderMap();
+  else if(S.tab==="branches") renderBranches();
+  else renderStarred();
+}
+renderDays(); renderAll();
+setInterval(()=>{ if(!document.hidden && S.tab!=="map") renderAll(); }, 60000); // keep "NOW"/"open" current
+
+if("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>

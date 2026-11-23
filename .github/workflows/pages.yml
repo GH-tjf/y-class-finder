@@ -1,0 +1,42 @@
+name: Refresh schedule and deploy
+
+on:
+  schedule:
+    - cron: "15 10 * * *"   # 4:15a Central (CST) / 5:15a (CDT), every day
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write    # commit refreshed data (also keeps the nightly schedule from being auto-disabled after 60 quiet days)
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pull schedule from ymcamidtn.org
+        # fetch.py exits non-zero on an implausible pull, so a bad night fails here and the live site keeps yesterday's data
+        run: python3 fetch.py
+      - name: Commit refreshed data
+        run: |
+          git config user.name "schedule-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data.json data.js
+          git diff --cached --quiet || git commit -m "data: refresh $(date -u +%F)"
+          git push
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deploy
+        uses: actions/deploy-pages@v4
